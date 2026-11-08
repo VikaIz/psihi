@@ -1,3 +1,13 @@
 <resources>
-    <string name="app_name">Spokoyno</string>
+    <string name="app_name">Спокойно</string>
+
+    <!-- Названия для нижнего меню -->
+    <string name="nav_tests">Тесты</string>
+    <string name="nav_passing">Прохождение</string>
+    <string name="nav_history">История</string>
+
+    <!-- Заголовки, которые будут показываться на экранах -->
+    <string name="screen_tests_title">Список доступных тестов</string>
+    <string name="screen_passing_title">Экран прохождения теста</string>
+    <string name="screen_history_title">История результатов</string>
 </resources>
