@@ -10,10 +10,7 @@ import androidx.compose.ui.res.stringResource
 
 @Composable
 fun ResultsHistoryScreen() {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text(text = stringResource(id = R.string.screen_history_title))
     }
 }

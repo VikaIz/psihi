@@ -1,13 +1,23 @@
 <resources>
     <string name="app_name">Спокойно</string>
 
-    <!-- Названия для нижнего меню -->
     <string name="nav_tests">Тесты</string>
     <string name="nav_passing">Прохождение</string>
     <string name="nav_history">История</string>
+    <string name="nav_settings">Настройки</string>
+    <string name="nav_result">Результат</string>
 
-    <!-- Заголовки, которые будут показываться на экранах -->
     <string name="screen_tests_title">Список доступных тестов</string>
-    <string name="screen_passing_title">Экран прохождения теста</string>
+    <string name="screen_passing_title">Прохождение теста</string>
     <string name="screen_history_title">История результатов</string>
+    <string name="screen_settings_title">Настройки</string>
+    <string name="screen_result_title">Результат теста</string>
+
+    <string name="screen_passing_stub">Тест №%1$d. Блок вопросов в разработке.</string>
+    <string name="screen_result_stub">Результат №%1$d. Диаграмма и интерпретация появятся позже.</string>
+    <string name="stub_test_item">Тест-заглушка №%1$d</string>
+
+    <string name="btn_finish_test">Завершить тест</string>
+    <string name="btn_to_tests">К списку тестов</string>
+    <string name="btn_to_history">В историю</string>
 </resources>
