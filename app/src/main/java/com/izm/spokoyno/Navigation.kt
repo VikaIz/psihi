@@ -23,6 +23,9 @@ sealed class Screen(val route: String, val titleResId: Int, val icon: ImageVecto
     data object TestResult : Screen("test_result/{resultId}", R.string.nav_result, Icons.Filled.Star) {
         fun createRoute(resultId: Int) = "test_result/$resultId"
     }
+
+    // Экран профиля (Онбординг и Редактирование)
+    data object Profile : Screen("profile", R.string.screen_settings_title, Icons.Filled.Settings)
 }
 
 val bottomNavItems = listOf(

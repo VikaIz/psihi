@@ -20,4 +20,8 @@
     <string name="btn_finish_test">Завершить тест</string>
     <string name="btn_to_tests">К списку тестов</string>
     <string name="btn_to_history">В историю</string>
+
+    <string name="btn_save_result">Завершить тест</string>
+    <string name="txt_profile">Профиль пользователя</string>
+    <string name="btn_reset_profile">Сбросить профиль</string>
 </resources>

@@ -2,12 +2,17 @@ package com.izm.spokoyno
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -17,128 +22,157 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.izm.spokoyno.data.local.AppDatabase
+import com.izm.spokoyno.data.local.UserPreferences
 import com.izm.spokoyno.ui.theme.SpokoynoTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Создаем канал уведомлений при старте
+        NotificationHelper.createNotificationChannel(this)
         setContent {
-            SpokoynoTheme {
+            val context = LocalContext.current
+            val prefs = remember { UserPreferences(context) }
+            val themeSetting by prefs.theme.collectAsState(initial = 0)
+
+            // Логика выбора темы: 0 - системная, 1 - светлая, 2 - темная
+            val darkTheme = when (themeSetting) {
+                1 -> false
+                2 -> true
+                else -> isSystemInDarkTheme()
+            }
+
+            SpokoynoTheme(darkTheme = darkTheme) {
                 MainScreen()
             }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen() {
     val navController = rememberNavController()
+    val context = LocalContext.current
+    val db = AppDatabase.getDatabase(context)
+
+    // Смотрим, есть ли пользователь
+    val user by db.userDao().getUser().collectAsState(initial = null)
+    var isLoading by remember { mutableStateOf(true) }
+
+    // Ждем, чтобы база успела ответить (предотвращаем мигание экрана)
+    LaunchedEffect(user) {
+        if (user != null || isLoading) {
+            isLoading = false
+        }
+    }
+
+    if (isLoading) {
+        // Экран загрузки
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        return
+    }
+
+    // Если пользователя нет, стартовый экран - Профиль
+    val startDestination = if (user == null) Screen.Profile.route else Screen.TestsList.route
+
+    // Блокируем кнопку "Назад", если мы на экране профиля и пользователя еще нет
+    BackHandler(enabled = user == null) {
+        // Ничего не делаем, чтобы не закрыть приложение
+    }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(id = R.string.app_name)) },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.primary,
-                )
-            )
-        },
         bottomBar = {
-            NavigationBar {
-                val navBackStackEntry by navController.currentBackStackEntryAsState()
-                val currentDestination = navBackStackEntry?.destination
-                bottomNavItems.forEach { screen ->
-                    NavigationBarItem(
-                        icon = {
-                            Icon(
-                                screen.icon,
-                                contentDescription = stringResource(screen.titleResId)
-                            )
-                        },
-                        label = { Text(stringResource(id = screen.titleResId)) },
-                        selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
-                        onClick = {
-                            navController.navigate(screen.route) {
-                                // Возвращаемся к стартовому экрану и ОЧИЩАЕМ стек до него.
-                                // Убрали saveState/restoreState, так как они ломают навигацию с аргументами
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    inclusive = true // Закрываем сам стартовый экран, чтобы начать с чистого листа
+            // Показываем нижнее меню ТОЛЬКО если мы не на экране профиля
+            val navBackStackEntry by navController.currentBackStackEntryAsState()
+            val currentRoute = navBackStackEntry?.destination?.route
+
+            if (currentRoute != Screen.Profile.route) {
+                NavigationBar {
+                    val currentDestination = navBackStackEntry?.destination
+                    bottomNavItems.forEach { screen ->
+                        NavigationBarItem(
+                            icon = { Icon(screen.icon, contentDescription = null) },
+                            label = { Text(stringResource(id = screen.titleResId)) },
+                            selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
+                            onClick = {
+                                navController.navigate(screen.route) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                        inclusive = true
+                                    }
+                                    launchSingleTop = true
                                 }
-                                launchSingleTop = true
                             }
-                        }
-                    )
+                        )
+                    }
                 }
             }
         }
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = Screen.TestsList.route,
+            startDestination = startDestination,
             modifier = Modifier.padding(innerPadding)
         ) {
-            // Список тестов
-            composable(Screen.TestsList.route) {
-                TestsListScreen(
-                    onTestClick = { testId ->
-                        navController.navigate(Screen.TestPassing.createRoute(testId))
+            // Экран профиля
+            composable(Screen.Profile.route) {
+                ProfileScreen(
+                    onProfileSaved = {
+                        // Если мы на стартовом экране (первый запуск) — едем в тесты
+                        if (user == null) {
+                            navController.navigate(Screen.TestsList.route) {
+                                popUpTo(Screen.Profile.route) { inclusive = true }
+                            }
+                        } else {
+                            // Если мы пришли из настроек — просто возвращаемся назад
+                            navController.popBackStack()
+                        }
                     }
                 )
             }
 
-            // Прохождение теста
+            // Экран тестов
+            composable(Screen.TestsList.route) {
+                TestsListScreen(onTestClick = { testId ->
+                    navController.navigate(Screen.TestPassing.createRoute(testId))
+                })
+            }
+
+            // Прохождение
             composable(
                 route = Screen.TestPassing.route,
                 arguments = listOf(navArgument("testId") { type = NavType.IntType })
             ) { backStackEntry ->
                 val testId = backStackEntry.arguments?.getInt("testId") ?: 0
-                TestPassingScreen(
-                    testId = testId,
-                    onTestFinished = { id ->
-                        // Заменяем экран прохождения на экран результата,
-                        // чтобы кнопка "Назад" не возвращала к завершенному тесту
-                        navController.navigate(Screen.TestResult.createRoute(id)) {
-                            popUpTo(Screen.TestPassing.route) { inclusive = true }
-                        }
-                    }
-                )
+                TestPassingScreen(testId = testId, onTestFinished = { id ->
+                    navController.navigate(Screen.TestResult.createRoute(id))
+                })
             }
 
-            // Результат теста
+            // Результат
             composable(
                 route = Screen.TestResult.route,
                 arguments = listOf(navArgument("resultId") { type = NavType.IntType })
             ) { backStackEntry ->
                 val resultId = backStackEntry.arguments?.getInt("resultId") ?: 0
-                TestResultScreen(
-                    resultId = resultId,
-                    onGoToTests = {
-                        // Четкий переход к тестам. Очищаем текущий стек.
-                        navController.navigate(Screen.TestsList.route) {
-                            popUpTo(Screen.TestsList.route) { inclusive = true }
-                            launchSingleTop = true
-                        }
-                    },
-                    onGoToHistory = {
-                        // Четкий переход к истории. Очищаем текущий стек.
-                        navController.navigate(Screen.ResultsHistory.route) {
-                            popUpTo(Screen.TestsList.route) { inclusive = false }
-                            launchSingleTop = true
-                        }
-                    }
+                TestResultScreen(resultId = resultId,
+                    onGoToTests = { navController.navigate(Screen.TestsList.route) { popUpTo(Screen.TestsList.route) { inclusive = true } } },
+                    onGoToHistory = { navController.navigate(Screen.ResultsHistory.route) { popUpTo(Screen.TestsList.route) } }
                 )
             }
 
             // История
-            composable(Screen.ResultsHistory.route) {
-                ResultsHistoryScreen()
-            }
+            composable(Screen.ResultsHistory.route) { ResultsHistoryScreen() }
 
             // Настройки
             composable(Screen.Settings.route) {
-                SettingsScreen()
+                SettingsScreen(
+                    onEditProfileClick = { navController.navigate(Screen.Profile.route) }
+                )
             }
         }
     }
